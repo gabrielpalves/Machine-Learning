@@ -51,7 +51,7 @@ def ag(n=100, ngen=50, nruns=5, Pc=0.5, Pm=0.2):
 
                 child0 = parent0[0:point] + parent1[point:]
                 child1 = parent1[0:point] + parent0[point:]
-                if np.random.rand(1) < Pc:
+                if np.random.rand(1) > Pc:
                     child0 = parent0
                     child1 = parent1
                 
@@ -63,11 +63,11 @@ def ag(n=100, ngen=50, nruns=5, Pc=0.5, Pm=0.2):
 
                 c0, c1 = child0, child1
                 point = np.random.randint(32)
-                if np.random.rand(1) >= Pm:
+                if np.random.rand(1) <= Pm:
                     c0 = child0[:point] + str((int(child0[point]) + 1) % 2) + child0[point+1:]
 
                 point = np.random.randint(32)
-                if np.random.rand(1) >= Pm:
+                if np.random.rand(1) <= Pm:
                     c1 = child1[:point] + str((int(child1[point]) + 1) % 2) + child1[point+1:]
 
                 child0 = get_float(c0)
@@ -100,8 +100,8 @@ Run Genetic Algorithm
 nruns = 5
 ngen = 500
 n = 100
-Pc = 0.5
-Pm = 0.2
+Pc = 0.1
+Pm = 0.05
 
 pop_run, fit_run, globalmax = ag(n=n, ngen=ngen, nruns=nruns, Pc=Pc, Pm=Pm)
 
