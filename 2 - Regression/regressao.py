@@ -6,19 +6,22 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 
-
-
+def vector2matrix(x):
+    return np.array([x]).T if len(x.shape) == 1 else x
 
 
 def f_true(x):
-    return 2 + 0.8 * x
+    # return 2 + 0.8 * x
+    y = np.ones((x.shape[0]))*2
+    for i in range(x.shape[1]):
+        xc = np.exp(x[:,i])
+        y = y + 0.4 * (i + 1)/10 * xc
+    return y
 
 
 def normal_equations(x, y):
     """Computes the closed-form solution to linear regression"""
-    if len(y.shape) == 1: y = np.array([y]).T
-    theta = np.matmul(np.matmul( inv(np.matmul(x.T, x)), x.T ), y)
-    return theta
+    return np.matmul(np.matmul( inv(np.matmul(x.T, x)), x.T ), y)
 
 
 def map_feature(x, degree):
@@ -26,11 +29,11 @@ def map_feature(x, degree):
     x0 = x[:, 0]
     x1 = x[:, 1]
     
-    out = np.ones(x1.shape[0], np.sum(np.arange(degree+2)))
-    count = 1
+    out = np.ones((x1.shape[0], np.sum(np.arange(degree+2))-1))
+    count = 0
     for i in range(1, degree+1):
-        for j in range(i):
-            out[:, count] = (x0**(i-j)) * (x1**j)
+        for j in range(i+1):
+            out[:, count] = x0**(i-j) * x1**j
             count += 1
     return out
 
@@ -42,7 +45,7 @@ def h(x, theta):
         x (numpy array): data of the problem
         theta (numpy array): parameters
     """
-    return np.matmul(x, theta)
+    return vector2matrix(np.matmul(x, theta))
 
 
 def J(theta, xs, ys):
@@ -79,18 +82,17 @@ def gradient(i, learning_rate, theta, xs, ys):
     for epoch in range(i):
         # Parameters (Theta)
         m = ys.shape[0]
-        theta = theta - ( learning_rate/m ) * ( np.matmul(xs.T, h(xs, theta) - ys) )
+        theta = theta - ( learning_rate/m ) * ( np.matmul( xs.T, h(xs, theta) - ys ) )
         
         # Save variables
-        theta_history[epoch, :] = theta
+        theta_history[epoch, :] = theta.ravel()
         J_history[epoch] = J(theta, xs, ys)
         
         # Plot
         if (
             epoch == 0 or
             epoch == i-1 or
-            np.abs(theta_history[epoch-1, 0] - theta[0])/theta[0] > 0.1 or
-            np.abs(theta_history[epoch-1, 1] - theta[1])/theta[1] > 0.1
+            np.sum(np.abs(theta_history[epoch-1, :] - theta)/theta) > 0.1*theta.shape[0]
             ):
             alpha = alpha + 0.05
             if alpha > 1: alpha = 1
@@ -117,7 +119,7 @@ def print_modelo(theta, xs, ys, fig, ax, plotted, alpha=1):
         xs (numpy array): input data
         ys (numpy array): output data
     """
-    x = xs[:, 1]
+    x = vector2matrix(xs[:, 1])
     y = f_true(x) # true function
     yr = h(xs, theta) # regression
     
@@ -140,6 +142,9 @@ def print_results(theta_hist, J_hist, xs, ys, learning_rate):
     plt.ylabel('Cost (J)')
     fig.set_size_inches(16, 9)
     fig.savefig(f'cost_{J_hist.shape[0]}epochs_{learning_rate}alpha.png', dpi=300)
+    
+    if xs.shape[1] > 2:
+        return
     
     # Now prepare to plot the cost in function of theta_0 and theta_1
     fig, (ax1, ax2) = plt.subplots(1, 2, subplot_kw={"projection": "3d"})
@@ -173,24 +178,28 @@ def print_results(theta_hist, J_hist, xs, ys, learning_rate):
 if __name__ == '__main__':
     # Data set {(x,y)}
     m = 100
-    xs = np.linspace(-3, 3, m)
-    ys = np.array( [f_true(x) + np.random.randn()*0.5 for x in xs] )
-
+    learning_rate = 0.01
+    
+    xs = np.array([np.linspace(-3, 3, m), np.linspace(.3, -1, m)]).T
+    xs = vector2matrix(xs)
+    ys = f_true(xs)
+    ys = vector2matrix(ys)
+    
+    # Polynomial regression
+    xs = map_feature(xs, degree=4)
+    
     # Normalize data
     mu = np.mean(xs, axis=0)
     sigma = np.std(xs, axis=0)
     xs = (xs - mu)/sigma
 
     # Add ones because of theta_0
-    if len(xs.shape) == 1: xs = np.array([xs]).T
     xs = np.concatenate((np.ones((xs.shape[0], 1)), xs), axis=1)
     
     # Initial theta
-    theta_init = np.zeros(xs.shape[1])-1
-    # Learning rate
-    learning_rate = 0.01
+    theta_init = vector2matrix(np.zeros(xs.shape[1]))
     
     theta, theta_hist, J_hist = gradient(i=5000, learning_rate=learning_rate, theta=theta_init, xs=xs, ys=ys)
     print_results(theta_hist, J_hist, xs, ys, learning_rate)
-    print(f'Theta found with the closed-form solution: {normal_equations(xs, ys)}')
+    print(f'Theta found with the closed-form solution: {normal_equations(xs, ys)[:,0]}')
     print(f'Theta found with gradient descent: {theta}')
