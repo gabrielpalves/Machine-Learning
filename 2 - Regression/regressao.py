@@ -7,6 +7,7 @@ from matplotlib import cm
 
 
 def vector2matrix(x):
+    """Transform a vector of n elements in a matrix of n x 1"""
     return np.array([x]).T if len(x.shape) == 1 else x
 
 
@@ -15,7 +16,7 @@ def f_true(x):
     y = np.ones((x.shape[0]))*2
     for i in range(x.shape[1]):
         xc = np.exp(x[:,i])
-        y = y + 0.4 * (i + 1)/10 * xc
+        y = y + 0.4 * (i + 1)/2 * xc
     return y
 
 
@@ -25,17 +26,39 @@ def normal_equations(x, y):
 
 
 def map_feature(x, degree):
-    """Maps x to a polynomial"""
-    x0 = x[:, 0]
-    x1 = x[:, 1]
+    """Maps x to a polynomial of a desired degree"""
+    if degree <= 1:
+        return x
     
-    out = np.ones((x1.shape[0], np.sum(np.arange(degree+2))-1))
-    count = 0
-    for i in range(1, degree+1):
-        for j in range(i+1):
-            out[:, count] = x0**(i-j) * x1**j
+    if x.shape[1] == 2:
+        x0 = x[:, 0]
+        x1 = x[:, 1]
+        
+        out = np.ones((x1.shape[0], np.sum(np.arange(degree+2))-1))
+        count = 0
+        for i in range(1, degree+1):
+            for j in range(i+1):
+                out[:, count] = x0**(i-j) * x1**j
+                count += 1
+    elif x.shape[1] == 1:
+        out = np.ones((x.shape[0], degree))
+        count = 0
+        x0 = x[:,0]
+        for i in range(1, degree+1):
+            out[:, count] = x0**i
             count += 1
+    else:
+        return x
+    
     return out
+
+
+def normalize(x):
+    """Normalize feature"""
+    mu = np.mean(x, axis=0)
+    sigma = np.std(x, axis=0)
+    x = (x - mu)/sigma
+    return x
 
 
 def h(x, theta):
@@ -59,7 +82,7 @@ def J(theta, xs, ys):
     return 1/2/ys.shape[0] * np.sum( (h(xs, theta) - ys)**2 )
 
 
-def gradient(i, learning_rate, theta, xs, ys):
+def gradient(i, learning_rate, theta, x_ori, xs, ys):
     """Gradient descent
 
     Args:
@@ -77,8 +100,10 @@ def gradient(i, learning_rate, theta, xs, ys):
     J_history = np.zeros(i)
     theta_history = np.zeros((i, theta.shape[0]))
     fig, ax = plt.subplots()
-    plotted = False
-    alpha = 0.15
+    plotted = True
+    alpha_init = 0.2
+    c = 'r'
+    label = 'Regression progression'
     for epoch in range(i):
         # Parameters (Theta)
         m = ys.shape[0]
@@ -89,26 +114,22 @@ def gradient(i, learning_rate, theta, xs, ys):
         J_history[epoch] = J(theta, xs, ys)
         
         # Plot
-        if (
-            epoch == 0 or
-            epoch == i-1 or
-            np.sum(np.abs(theta_history[epoch-1, :] - theta)/theta) > 0.1*theta.shape[0]
-            ):
-            alpha = alpha + 0.05
-            if alpha > 1: alpha = 1
-            if epoch == i-1: alpha = 1
-            print_modelo(theta, xs, ys, fig, ax, plotted, alpha) 
-            plotted = True
+        alpha = alpha_init + 0.5*(epoch/i)**2
+        if epoch == i-1: alpha, c, plotted, label = 1, 'g', False, 'Final regression line'
+        print_modelo(theta, x_ori, xs, ys, fig, ax, plotted, alpha, c=c, label=label)
+        label = None
             
     # Save regression plot
     plt.xlabel('x')
     plt.ylabel('y')
+    plt.legend()
+    plt.rcParams.update({'font.size': 24})
     fig.set_size_inches(16, 9)
     fig.savefig(f'regression_{learning_rate}alpha_{i}epochs.png', dpi=300)
     return theta, theta_history, J_history
 
 
-def print_modelo(theta, xs, ys, fig, ax, plotted, alpha=1):
+def print_modelo(theta, x_original, xs, ys, fig, ax, plotted, alpha=1, c='r', label=None):
     """Plot on the same graph:
     - the model/hypothesis (line)
     - the original line (true function)
@@ -120,18 +141,18 @@ def print_modelo(theta, xs, ys, fig, ax, plotted, alpha=1):
         ys (numpy array): output data
     """
     x = vector2matrix(xs[:, 1])
-    y = f_true(x) # true function
+    y = f_true(x_original) # true function
     yr = h(xs, theta) # regression
     
     if not plotted:
         # Scatter original data
-        ax.scatter(x, ys, linewidths=2.5, c='b', marker='+')
+        ax.scatter(x, ys, linewidths=2.5, c='b', marker='+', label='Data')
         
         # Plot original line
-        ax.plot(x, y, linewidth=2.5, c='k')
+        ax.plot(x, y, linewidth=2.5, c='k', label='True function')
     
     # Plot regression line
-    ax.plot(x, yr, linewidth=2.5, linestyle='--', c='r', alpha=alpha)
+    ax.plot(x, yr, linewidth=2.5, linestyle='--', c=c, alpha=alpha, label=label)
     
     
 def print_results(theta_hist, J_hist, xs, ys, learning_rate):
@@ -140,6 +161,7 @@ def print_results(theta_hist, J_hist, xs, ys, learning_rate):
     plt.plot(np.arange(J_hist.shape[0]), J_hist, '-o', linewidth=2)
     plt.xlabel('Epoch')
     plt.ylabel('Cost (J)')
+    plt.rcParams.update({'font.size': 24})
     fig.set_size_inches(16, 9)
     fig.savefig(f'cost_{J_hist.shape[0]}epochs_{learning_rate}alpha.png', dpi=300)
     
@@ -165,6 +187,7 @@ def print_results(theta_hist, J_hist, xs, ys, learning_rate):
                     linewidth=0, antialiased=False)
     plt.xlabel('theta_0')
     plt.ylabel('theta_1')
+    plt.rcParams.update({'font.size': 24})
     
     # Plot gradient convergence (theta_0 x theta_1 x J)
     ax2.contour(t0, t1, y)
@@ -179,19 +202,25 @@ if __name__ == '__main__':
     # Data set {(x,y)}
     m = 100
     learning_rate = 0.01
+    polynomial = True
+    multivariable = True
+    normalize_data = True
     
-    xs = np.array([np.linspace(-3, 3, m), np.linspace(.3, -1, m)]).T
+    xs = np.linspace(-3, 3, m)
+    if multivariable:
+        xs = np.array([np.linspace(-3, 3, m), np.linspace(.3, -1, m)]).T
     xs = vector2matrix(xs)
+    x_original = xs
     ys = f_true(xs)
-    ys = vector2matrix(ys)
+    ys = vector2matrix(ys) + np.random.randn(ys.shape[0], 1)*0.5
     
     # Polynomial regression
-    xs = map_feature(xs, degree=4)
+    if polynomial:
+        xs = map_feature(xs, degree=4)
     
     # Normalize data
-    mu = np.mean(xs, axis=0)
-    sigma = np.std(xs, axis=0)
-    xs = (xs - mu)/sigma
+    if normalize_data:
+        xs = normalize(xs)
 
     # Add ones because of theta_0
     xs = np.concatenate((np.ones((xs.shape[0], 1)), xs), axis=1)
@@ -199,7 +228,8 @@ if __name__ == '__main__':
     # Initial theta
     theta_init = vector2matrix(np.zeros(xs.shape[1]))
     
-    theta, theta_hist, J_hist = gradient(i=5000, learning_rate=learning_rate, theta=theta_init, xs=xs, ys=ys)
+    theta, theta_hist, J_hist = gradient(i=5000, learning_rate=learning_rate, theta=theta_init, x_ori=x_original, xs=xs, ys=ys)
     print_results(theta_hist, J_hist, xs, ys, learning_rate)
-    print(f'Theta found with the closed-form solution: {normal_equations(xs, ys)[:,0]}')
     print(f'Theta found with gradient descent: {theta}')
+    try: print(f'Theta found with the closed-form solution: {normal_equations(xs, ys)}')
+    except: pass
