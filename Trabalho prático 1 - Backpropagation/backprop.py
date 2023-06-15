@@ -194,8 +194,7 @@ def checkNNGradients(nnCostFunction, lambda_=0):
 
 def sigmoid(z):
     """Sigmoide"""
-    def s(z):
-        return 1.0 / (1.0 + np.exp(-z))
+    s = lambda z: 1.0 / (1.0 + np.exp(-z))
     return s(z), s(z) * (1 - s(z))
 
 def sigmoidGradient(z):
@@ -204,9 +203,8 @@ def sigmoidGradient(z):
 
 def tanh(z):
     """Tangente hiperbólica"""
-    def th(z):
-        return (np.exp(2*z) - 1)/(np.exp(2*z) + 1)
-    return th(z), 1 - np.power(th(z), 2)
+    th = lambda z: (np.exp(2*z) - 1)/(np.exp(2*z) + 1)
+    return th(z), 1.0 - np.power(th(z), 2)
 
 def tanh_gradient(z):
     """Derivada da tangente hiperbólica"""
@@ -245,6 +243,35 @@ nn_params = np.concatenate([Theta1.ravel(), Theta2.ravel()])
 
 layer_size = [400, 25, 10]
 activation_function = sigmoid
+
+
+def all_activations(X, layer_size, nn_params, activation_function):
+    Thetas = Theta_transform(layer_size, nn_params)
+    
+    activations = list()
+    nets = [X]
+    for i in range(len(layer_size)):
+        if i == 0:
+            activations.append(
+                np.concatenate([np.ones((X.shape[0], 1)), X], axis=1)
+            )
+        else:
+            a = activations[i-1]
+            Theta = Thetas[i-1]
+            z = a.dot(Theta.T)
+            nets.append(z)
+            a_i, _ = activation_function(z)
+            if i == len(layer_size)-1:
+                activations.append(
+                    a_i
+                )
+            else:
+                activations.append(
+                    np.concatenate([np.ones((a_i.shape[0], 1)), a_i], axis=1)
+                )
+                
+    return activations
+
 
 def nnCostFunction(nn_params,
                    input_layer_size,
@@ -418,9 +445,9 @@ def nnCostFunction(nn_params,
 
 
 lambda_ = 0
-J, _ = nnCostFunction(nn_params, input_layer_size, hidden_layer_size,
+cost, _ = nnCostFunction(nn_params, input_layer_size, hidden_layer_size,
                    num_labels, X, y, lambda_)
-print('Cost at parameters (loaded from ex4weights): %.6f ' % J)
+print('Cost at parameters (loaded from ex4weights): %.6f ' % cost)
 print('The cost should be about                   : 0.287629.')
 
 
@@ -481,3 +508,59 @@ initial_nn_params = np.concatenate([initial_Theta1.ravel(), initial_Theta2.ravel
 print(initial_nn_params.shape, 25*401+10*26, initial_Theta1.shape, initial_Theta2.shape)
 
 checkNNGradients(nnCostFunction)
+
+activations = all_activations(X, layer_size, nn_params, activation_function)
+h = activations[-1]
+
+def J(y, h):
+    """Cost function
+
+    Args:
+        theta (numpy array): parameters
+        x (numpy array): input data
+        y (numpy array): output data
+    """
+    num_labels = np.unique(y).shape[0]
+    y_matrix = np.eye(num_labels)[y]
+    return (-1 / m) * np.sum((np.log(h) * y_matrix) + np.log(1 - h) * (1 - y_matrix))
+
+print(y.shape, X.shape)
+
+def gradient(i, learning_rate, theta, x, y, layer_size, activation_function):
+    """Gradient descent
+
+    Args:
+        alpha (float): learning rate
+        i (int): number of epochs
+        theta (numpy array): parameters
+        x (numpy array): input data
+        y (numpy array): output data
+    
+    Returns:
+        theta (numpy array): optimum parameters
+        theta_history (numpy array): parameters history
+        J_history (numpy array): history of the cost
+    """
+    
+    J_history = np.zeros(i)
+    theta_history = np.zeros((i, theta.shape[0]))
+    
+    activations = all_activations(x, layer_size, theta, activation_function)
+    h = activations[-1]
+
+    for epoch in range(i):
+        # Parameters (Theta)
+        m = y.shape[0]
+        theta = theta - ( learning_rate/m ) * ( np.matmul( x.T, h - y ) )
+        
+        # Save variables
+        activations = all_activations(x, layer_size, theta, activation_function)
+        h = activations[-1]
+        
+        theta_history[epoch, :] = theta.ravel()
+        J_history[epoch] = J(y, h)
+    
+    return theta, theta_history, J_history
+
+
+gradient(10, 0.01, initial_nn_params, X, y, layer_size, activation_function)
