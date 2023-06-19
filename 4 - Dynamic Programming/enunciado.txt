@@ -1,0 +1,8 @@
+1) Implement Policy evaluation for Example 4.1: 4x4 gridworld (page 74-76) from Sutton and Barto Book.
+
+Print the table (matrix) with the estimated values of the states (v_pi) after convergence (when Delta <= 0.01), as in Fig. 4.1 (last plot) from the book.
+
+
+2) Solve Example 4.3: Gambler’s Problem (page 83/84) from Sutton and Barto Book using Value Iteration. After convergence, plot the Values estimates of the states as in Fig. 4.3 from the book. If you try to plot the final policy, does it look similar to the one in the book? 
+
+Submit here on Moodle both the Python code and the plot of the Value estimates for both examples.
