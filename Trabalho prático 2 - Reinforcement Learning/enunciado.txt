@@ -1,0 +1,10 @@
+For this project, you will implement and analyse:
+
+1) Value iteration for a grid-world (Question 1)
+2) Q-Learning from scratch for Example 6.6: Cliff Walking from the Sutton & Barto book (page 132).
+3) Q-Learning for PacMan (Questions 6, 7 and Question 9)
+
+Among other things, you will:
+- describe the MDP (state space, action space, reward function, environment dynamics)
+- deliver the implemented code
+- show the plot of the rewards during training episodes and experiment with the parameters of the algorithms.
