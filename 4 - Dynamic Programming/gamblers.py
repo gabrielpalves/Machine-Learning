@@ -63,67 +63,98 @@ Reward is zero on all transitions, except those on which the gambler reaches his
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 GOAL = 100
 LOSS = 0
 
 # small threshold θ > 0 determining accuracy of estimation
 DELTA = np.inf
-THETA = 0.0001
+THETA = 1e-8
 
 # discount
 GAMMA = 1 # γ = 1 for no discount
 
 # $1 to 99$; 0 = loss, 100 = win
-states = np.arange(LOSS, GOAL+1, dtype='int8') 
+STATES = np.arange(LOSS, GOAL+1, dtype='int8') 
 
 # probability of the coin coming up heads (heads -> agent wins its stake)
-p_h = 0.40
+P_H = 0.40
 
 
-def bet(state, stake):
+def bet(state, stake, result=1):
     """
     Returns 0 of reward for all states and 1 when the agent achieves its goal
     """
-    next_state = GAMMA * (state + stake)
+    next_state = state + stake*result
     reward = 0
     
     if next_state == GOAL:
         reward = 1
-    elif next_state == LOSS:
-        next_state = 0 # resets
     
-    return np.array([reward, next_state], dtype='int8')
+    return next_state, reward
+
 
 # Value Iteration, for estimating π ≈ π*
+policy = np.zeros((GOAL+1-LOSS))
 v_k1 = np.zeros((GOAL+1-LOSS)) # 0 to 100 (0 = no money, i.e., LOSS and 100 = GOAL)
-while DELTA > THETA:
+v_k1[GOAL] = 1
+while DELTA >= THETA:
     DELTA = 0
-    for s in states:
+    for s in STATES[1:GOAL]:
+        v_k0 = v_k1.copy()
         # bet from $0 to the quantity necessary to attain the GOAL
         actions = np.arange(np.min([s, GOAL-s]) + 1, dtype='int8')
         
         v_max = -np.inf
         for a in actions:
-            value = p_h * np.sum(bet(s, a))
+            next_s, r = bet(s, a, 1)
+            value = P_H * (r + GAMMA*v_k1[next_s])
+            
+            next_s, r = bet(s, a, -1)
+            value += (1 - P_H) * (r + GAMMA*v_k1[next_s])
+            
             if v_max < value:
                 v_max = np.copy(value)
-        DELTA = np.max([DELTA, np.abs(v_k1[s] - v_max)])
+            
         v_k1[s] = v_max
-    
-print(v_k1)
+        DELTA = np.max([DELTA, np.abs(v_k0[s] - v_k1[s])])
+
 
 # Output a deterministic policy, π ≈ π*, such that
 # π(s) = argmax_a Σ_{s', r} p(s', r | s, a) [r + γV(s')]
-policy = np.zeros((GOAL+1-LOSS))
-for s in states:
-    v_max, best_action = v_k1[s], -np.inf
-    
+policy = np.zeros(GOAL + 1)
+for s in STATES[1:GOAL]:
+    # bet from $0 to the quantity necessary to attain the GOAL
     actions = np.arange(np.min([s, GOAL-s]) + 1, dtype='int8')
+    
+    v_max, best_action = -np.inf, -np.inf
     for a in actions:
-        value = p_h * np.sum(bet(s, a))
-        if value > v_max:
+        next_s, r = bet(s, a, 1)
+        value = P_H * (r + GAMMA*v_k1[next_s])
+        
+        next_s, r = bet(s, a, -1)
+        value += (1 - P_H) * (r + GAMMA*v_k1[next_s])
+        
+        if v_max < value:
             v_max = np.copy(value)
             best_action = np.copy(a)
-    policy[s] = a
+    policy[s] = best_action
+    
+print(v_k1)
 print(policy)
+
+plt.rcParams.update({'font.size': 24})
+plt.figure(figsize=(16, 9))
+plt.plot(STATES, v_k1)
+plt.xlabel('Capital')
+plt.ylabel('Value estimates')
+plt.savefig('value_estimates.png', dpi=300)
+
+plt.figure(figsize=(16, 9))
+plt.bar(STATES, policy)
+plt.xlabel('Capital')
+plt.ylabel('Final policy (stake)')
+plt.savefig('final_policy.png', dpi=300)
+
+plt.show()
