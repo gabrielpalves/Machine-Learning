@@ -52,7 +52,7 @@ Output a deterministic policy, π ≈ π*, such that
     π(s) = argmax_a Σ_{s', r} p(s', r | s, a) [r + γV(s')]
     (Bellman optimality equation)
 
-Gamber's Problem - A gambler has the opportunity to make bets on the outcomes of a sequence of coin flips
+Gambler's Problem - A gambler has the opportunity to make bets on the outcomes of a sequence of coin flips
 - if the coin comes up heads, he wins as many dollars as he has staked on that flip;
 - if it is tails, he loses his stake
 
@@ -62,20 +62,68 @@ Gamber's Problem - A gambler has the opportunity to make bets on the outcomes of
 Reward is zero on all transitions, except those on which the gambler reaches his goal (+1)
 """
 
-victory = 100
-defeat = 0
+import numpy as np
 
-Delta = 0
-theta = 0.01
+GOAL = 100
+LOSS = 0
 
-state = 1
+# small threshold θ > 0 determining accuracy of estimation
+DELTA = np.inf
+THETA = 0.0001
 
-def bet(state, stake, result):
-    next_state = state + stake*result, 0
-    if next_state == victory:
-        return next_state, 1
-    elif next_state == defeat:
-        return 1, 0
-    else:
-        return next_state, 0
+# discount
+GAMMA = 1 # γ = 1 for no discount
 
+# $1 to 99$; 0 = loss, 100 = win
+states = np.arange(LOSS, GOAL+1, dtype='int8') 
+
+# probability of the coin coming up heads (heads -> agent wins its stake)
+p_h = 0.40
+
+
+def bet(state, stake):
+    """
+    Returns 0 of reward for all states and 1 when the agent achieves its goal
+    """
+    next_state = GAMMA * (state + stake)
+    reward = 0
+    
+    if next_state == GOAL:
+        reward = 1
+    elif next_state == LOSS:
+        next_state = 0 # resets
+    
+    return np.array([reward, next_state], dtype='int8')
+
+# Value Iteration, for estimating π ≈ π*
+v_k1 = np.zeros((GOAL+1-LOSS)) # 0 to 100 (0 = no money, i.e., LOSS and 100 = GOAL)
+while DELTA > THETA:
+    DELTA = 0
+    for s in states:
+        # bet from $0 to the quantity necessary to attain the GOAL
+        actions = np.arange(np.min([s, GOAL-s]) + 1, dtype='int8')
+        
+        v_max = -np.inf
+        for a in actions:
+            value = p_h * np.sum(bet(s, a))
+            if v_max < value:
+                v_max = np.copy(value)
+        DELTA = np.max([DELTA, np.abs(v_k1[s] - v_max)])
+        v_k1[s] = v_max
+    
+print(v_k1)
+
+# Output a deterministic policy, π ≈ π*, such that
+# π(s) = argmax_a Σ_{s', r} p(s', r | s, a) [r + γV(s')]
+policy = np.zeros((GOAL+1-LOSS))
+for s in states:
+    v_max, best_action = v_k1[s], -np.inf
+    
+    actions = np.arange(np.min([s, GOAL-s]) + 1, dtype='int8')
+    for a in actions:
+        value = p_h * np.sum(bet(s, a))
+        if value > v_max:
+            v_max = np.copy(value)
+            best_action = np.copy(a)
+    policy[s] = a
+print(policy)
