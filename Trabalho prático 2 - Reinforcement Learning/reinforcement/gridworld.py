@@ -478,6 +478,9 @@ if __name__ == '__main__':
     ###########################
     # GET THE AGENT
     ###########################
+    
+    opts.agent = 'value' # delete later
+    opts.iters = 50 # delete later
 
     import valueIterationAgents, qlearningAgents
     a = None
